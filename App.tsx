@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
@@ -12,7 +13,12 @@ import {
   Menu,
   ChevronDown,
   Activity,
-  Wifi
+  Wifi,
+  ShieldCheck,
+  AlertOctagon,
+  Lock,
+  ArrowRight,
+  Server
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -21,20 +27,59 @@ import ManualEntryForm from './components/ManualEntryForm';
 import Settings from './components/Settings';
 
 import { MOCK_ACCOUNTS, MOCK_SIGNALS, MOCK_EQUITY_DATA, USER_PROFILE } from './services/mockData';
-import { Signal, Account } from './types';
+import { Signal, Account, EquityPoint, Currency } from './types';
 
 // Enums for View State
 type View = 'DASHBOARD' | 'SIGNALS' | 'ENTRY' | 'SETTINGS';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<View>('SETTINGS'); // Default to settings as requested previously, or switch to dashboard
+  const [activeView, setActiveView] = useState<View>('SETTINGS'); 
   const [accounts, setAccounts] = useState<Account[]>(MOCK_ACCOUNTS);
+  const [equityData, setEquityData] = useState<EquityPoint[]>(MOCK_EQUITY_DATA);
   const [signals, setSignals] = useState<Signal[]>(MOCK_SIGNALS);
   const [isSystemLocked, setIsSystemLocked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [currency, setCurrency] = useState<Currency>('USD');
+  const [dataSaverMode, setDataSaverMode] = useState(false);
 
   // Stats for sidebar badges
   const pendingSignalsCount = signals.filter(s => s.status === 'AWAITING_APPROVAL').length;
+
+  // Real-time Simulation Engine
+  useEffect(() => {
+    // If Data Saver is on, stop the high-frequency equity updates
+    if (dataSaverMode) return;
+
+    const interval = setInterval(() => {
+        // 1. Update Accounts Equity slightly
+        setAccounts(prev => prev.map(acc => {
+            if (acc.status === 'CONNECTED') {
+                const change = (Math.random() - 0.5) * 50;
+                return { 
+                    ...acc, 
+                    equity: acc.equity + change,
+                    daily_pl: acc.daily_pl + change
+                };
+            }
+            return acc;
+        }));
+
+        // 2. Add new point to equity curve
+        const totalEquity = accounts.reduce((acc, curr) => acc + curr.equity, 0);
+        const now = new Date();
+        const timeLabel = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+        
+        setEquityData(prev => {
+            const newData = [...prev, { time: timeLabel, value: totalEquity }];
+            if (newData.length > 20) newData.shift(); // Keep last 20 points
+            return newData;
+        });
+
+    }, 3000); // Update every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [accounts, dataSaverMode]);
 
   const handleApproveSignal = (id: string) => {
     setSignals(prev => prev.map(s => 
@@ -75,26 +120,34 @@ const App: React.FC = () => {
     }
   };
 
+  const completeOnboarding = () => {
+      setShowOnboarding(false);
+      setActiveView('DASHBOARD');
+  };
+
+  const toggleCurrency = () => {
+      setCurrency(prev => prev === 'USD' ? 'KES' : 'USD');
+  };
+
   return (
     <div className="flex h-screen bg-[#050507] text-gray-100 font-sans overflow-hidden relative selection:bg-purple-500 selection:text-white">
       
-      {/* Background Ambience - Animated */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px] animate-pulse-slow"></div>
-         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-900/10 rounded-full blur-[120px] animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
-         <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] bg-blue-900/05 rounded-full blur-[80px] animate-float"></div>
-      </div>
+      {/* Onboarding Wizard */}
+      {showOnboarding && <OnboardingWizard onComplete={completeOnboarding} />}
+
+      {/* Background Ambience - Animated (Disabled if Data Saver is ON) */}
+      {!dataSaverMode && (
+        <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px] animate-pulse-slow"></div>
+            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-900/10 rounded-full blur-[120px] animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+            <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] bg-blue-900/05 rounded-full blur-[80px] animate-float"></div>
+        </div>
+      )}
 
       {/* Sidebar - Desktop */}
       <aside className="w-20 lg:w-72 border-r border-white/5 bg-[#0a0a0e]/60 backdrop-blur-2xl flex flex-col hidden md:flex z-20 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
         <div className="p-6 border-b border-white/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white shadow-[0_0_20px_rgba(139,92,246,0.3)] relative overflow-hidden group">
-                <span className="relative z-10 text-lg">N</span>
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500 hidden lg:block tracking-tight">
-                Nexus<span className="font-light text-purple-400">Trader</span>
-            </h1>
+            <AppLogo />
         </div>
 
         <nav className="flex-1 p-4 space-y-2 mt-4">
@@ -148,6 +201,12 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative z-10 bg-transparent">
         
+        {/* Secure Environment Banner */}
+        <div className="bg-emerald-500/10 border-b border-emerald-500/20 py-1.5 px-6 flex items-center justify-center gap-2 text-[10px] md:text-xs font-bold uppercase tracking-wider text-emerald-500 relative z-30">
+          <Lock size={12} />
+          <span>SECURE MODE ACTIVE: Backend Orchestration Enabled</span>
+        </div>
+
         {/* Header */}
         <header className="h-16 bg-[#0a0a0e]/40 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 lg:px-8 z-20 sticky top-0">
             {/* Mobile Logo */}
@@ -165,7 +224,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="h-4 w-px bg-white/10"></div>
                 <div className="flex items-center gap-4 text-xs font-mono text-gray-400 overflow-hidden relative w-96">
-                    <div className="flex gap-6 animate-shimmer whitespace-nowrap">
+                    <div className={`flex gap-6 whitespace-nowrap ${!dataSaverMode && 'animate-shimmer'}`}>
                         <span className="flex items-center gap-1">XAUUSD <span className="text-emerald-400">2410.50</span></span>
                         <span className="flex items-center gap-1">EURUSD <span className="text-rose-400">1.0945</span></span>
                         <span className="flex items-center gap-1">BTCUSD <span className="text-emerald-400">65,230</span></span>
@@ -230,7 +289,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
             
             {isSystemLocked && (
-                <div className="mb-8 glass-panel border-rose-500/50 p-6 rounded-3xl flex items-center gap-6 shadow-[0_0_30px_rgba(225,29,72,0.15)] relative overflow-hidden bg-rose-950/20">
+                <div className="mb-8 glass-panel border-rose-500/50 p-6 rounded-3xl flex items-center gap-6 shadow-[0_0_30px_rgba(225,29,72,0.15)] relative overflow-hidden bg-rose-950/20 animate-in slide-in-from-top-4">
                     <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 shadow-[0_0_15px_#f43f5e]"></div>
                     <div className="p-4 bg-rose-500/20 rounded-full text-rose-500 animate-pulse">
                          <Siren size={32} />
@@ -252,7 +311,12 @@ const App: React.FC = () => {
 
             {activeView === 'DASHBOARD' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <Dashboard accounts={accounts} equityData={MOCK_EQUITY_DATA} />
+                    <Dashboard 
+                        accounts={accounts} 
+                        equityData={equityData} 
+                        currency={currency} 
+                        onToggleCurrency={toggleCurrency}
+                    />
                 </div>
             )}
 
@@ -299,6 +363,8 @@ const App: React.FC = () => {
                   accounts={accounts} 
                   onAddAccount={handleAddAccount} 
                   onRemoveAccount={handleRemoveAccount} 
+                  dataSaverMode={dataSaverMode}
+                  onToggleDataSaver={setDataSaverMode}
                 />
             )}
 
@@ -307,6 +373,74 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+// --- Helper Component: App Logo ---
+const AppLogo = () => (
+    <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white shadow-[0_0_20px_rgba(139,92,246,0.3)] relative overflow-hidden group">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTZWMThIMlYxNkg0VjEzQzQgNy40NzcxNiA4LjQ3NzE2IDMgMTQgM1YxQzE0IDAuNDQ3NzE1IDE0LjQ0NzcgMCAxNSAwQzE1LjU1MjMgMCAxNiAwLjQ0NzcxNSAxNiAxVjNDMjEuNTIyOCAzIDI2IDcuNDc3MTYgMjY 1M1YxNkgzMFYxOEgyOFYyMEgyNlYxOEgyMVpNMTYgMjBINXYySDZWMjJIOFYyMEgxMFYyMkgxMlYyMEgxNFYyMkgxNlYyMEoiLz48L3N2Zz4=')] opacity-20 bg-cover"></div>
+            <Activity size={24} className="relative z-10" />
+        </div>
+        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400 hidden lg:block tracking-tight">
+            Nexus<span className="font-light text-purple-400">Trader</span>
+        </h1>
+    </div>
+);
+
+// --- Helper Component: Onboarding Wizard ---
+const OnboardingWizard = ({ onComplete }: { onComplete: () => void }) => {
+    const [step, setStep] = useState(1);
+
+    const nextStep = () => {
+        if (step < 3) setStep(step + 1);
+        else onComplete();
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-500">
+            <div className="glass-card max-w-lg w-full rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+                {/* Progress Bar */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
+                    <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${(step/3)*100}%` }}></div>
+                </div>
+
+                <div className="mt-4 text-center">
+                    <div className="w-16 h-16 mx-auto mb-6 bg-purple-500/10 rounded-full flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/20">
+                        {step === 1 && <Activity size={32} />}
+                        {step === 2 && <Server size={32} />}
+                        {step === 3 && <ShieldCheck size={32} />}
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-white mb-2">
+                        {step === 1 && "Welcome to NexusTrader AI"}
+                        {step === 2 && "Connect Your Broker"}
+                        {step === 3 && "Safety First Protocols"}
+                    </h2>
+                    
+                    <p className="text-gray-400 text-sm mb-8 px-4 h-12">
+                        {step === 1 && "The enterprise-grade orchestration layer for algorithmic trading. Let's get your environment set up."}
+                        {step === 2 && "We support MetaTrader 4 and 5 via the Manager API. Low latency execution with 99.9% uptime."}
+                        {step === 3 && "Configure your daily loss limits and maximum drawdown. The AI will automatically respect these hard stops."}
+                    </p>
+
+                    <div className="flex gap-3">
+                         {step > 1 && (
+                            <button onClick={() => setStep(step - 1)} className="flex-1 py-3.5 rounded-xl font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors">
+                                Back
+                            </button>
+                         )}
+                        <button 
+                            onClick={nextStep}
+                            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                        >
+                            {step === 3 ? "Launch Dashboard" : "Continue"} <ArrowRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // Helper Component for Navigation Buttons
 const NavButton = ({ active, onClick, icon, label, badge }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, badge?: number }) => (

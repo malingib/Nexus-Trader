@@ -1,63 +1,58 @@
-import { GoogleGenAI } from "@google/genai";
 import { Signal } from "../types";
+import { logger } from "./logger";
 
-// Helper to check if API key exists
+// Configuration for Backend Endpoint
+// In production, this URL would be determined by environment variables
+const BACKEND_URL = 'http://localhost:3001/api/analyze';
+
+// Helper to check if system is ready (Backend assumed available)
 export const hasApiKey = (): boolean => {
-  return !!process.env.API_KEY;
-};
-
-// Initialize Gemini Client
-const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY not found in environment variables");
-  return new GoogleGenAI({ apiKey });
+  return true; 
 };
 
 export const analyzeSignalWithGemini = async (
   signal: Signal,
   onStream: (text: string) => void
 ): Promise<string> => {
+  
   try {
-    const ai = getClient();
-    const model = "gemini-2.5-flash"; // Efficient for text analysis
-
-    const prompt = `
-      You are a senior financial risk analyst for an algorithmic trading desk.
-      Analyze the following trading signal and provide a concise risk assessment.
-      
-      Signal Details:
-      - Instrument: ${signal.instrument}
-      - Side: ${signal.side}
-      - Entry Price: ${signal.price}
-      - Stop Loss: ${signal.stop_loss}
-      - Take Profit: ${signal.take_profit}
-      - Source: ${signal.source}
-      - Confidence: ${(signal.confidence * 100).toFixed(1)}%
-      
-      Tasks:
-      1. Calculate the Reward-to-Risk Ratio.
-      2. Identify potential macroeconomic catalysts (generic, based on instrument type).
-      3. Verdict: Is this a "High Risk", "Medium Risk", or "Low Risk" trade setup?
-      
-      Format the output as a concise markdown summary. Do not include financial advice warnings, this is an internal system tool.
-    `;
-
-    const result = await ai.models.generateContentStream({
-      model,
-      contents: [{ parts: [{ text: prompt }] }],
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ signal }),
     });
 
-    let fullText = "";
-    for await (const chunk of result) {
-      if (chunk.text) {
-        fullText += chunk.text;
-        onStream(fullText);
+    if (!response.ok) {
+      if (response.status === 429) {
+        return "Analysis paused: Global rate limit exceeded. Please wait a moment.";
       }
+      throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
     }
+
+    if (!response.body) {
+      throw new Error("No response body received from server");
+    }
+
+    // Process the stream from the backend
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+      onStream(fullText);
+    }
+
     return fullText;
 
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    return "Failed to generate analysis. Please check API Key or connectivity.";
+    logger.error("Analysis Request Failed", error);
+    return "Connection Error: Unable to reach analysis server. Please ensure the backend is running on port 3001.";
   }
 };

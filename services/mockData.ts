@@ -1,12 +1,14 @@
 
-import { Account, Signal, EquityPoint } from '../types';
+import { Account, Signal, EquityPoint, TeamMember, AuditLogEntry, ApiKey } from '../types';
+
+export const EXCHANGE_RATE_KES = 129.50;
 
 export const USER_PROFILE = {
   name: "Alex Trader",
   email: "alex.trader@nexus.ai",
   avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-  planType: "$100k Challenge",
-  accountType: "Swap Free",
+  planType: "Enterprise Pro",
+  accountType: "Master Node",
   startDate: "Apr 15, 2025",
   endDate: "May 15, 2025",
   login: "78748803",
@@ -131,4 +133,23 @@ export const MOCK_EQUITY_DATA: EquityPoint[] = [
   { time: '12:00', value: 150100 },
   { time: '13:00', value: 149800 },
   { time: '14:00', value: 151040.50 },
+];
+
+export const MOCK_TEAM: TeamMember[] = [
+  { id: '1', name: 'Alex Trader', email: 'alex@nexus.ai', role: 'ADMIN', status: 'ACTIVE', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex', lastActive: 'Now' },
+  { id: '2', name: 'Sarah Analyst', email: 'sarah@nexus.ai', role: 'ANALYST', status: 'ACTIVE', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah', lastActive: '2h ago' },
+  { id: '3', name: 'Mike Risk', email: 'mike@nexus.ai', role: 'TRADER', status: 'PENDING', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike', lastActive: 'Never' },
+];
+
+export const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
+  { id: 'log-1', timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), user: 'Alex Trader', action: 'Update Risk Params', category: 'RISK', details: 'Changed Max Daily Loss from $4000 to $5000' },
+  { id: 'log-2', timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(), user: 'System', action: 'Auto-Reject Signal', category: 'SYSTEM', details: 'Rejected XAUUSD Signal (Low Confidence: 45%)' },
+  { id: 'log-3', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), user: 'Sarah Analyst', action: 'Invite User', category: 'TEAM', details: 'Invited mike@nexus.ai as TRADER' },
+  { id: 'log-4', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25).toISOString(), user: 'Alex Trader', action: 'API Key Created', category: 'SECURITY', details: 'Created key "Production Bot 1"' },
+  { id: 'log-5', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), user: 'Alex Trader', action: 'M-PESA Topup', category: 'BILLING', details: 'Processed STK Push for KES 15,000' },
+];
+
+export const MOCK_API_KEYS: ApiKey[] = [
+  { id: 'key-1', name: 'Production Bot 1', prefix: 'nx_live_...', created: '2025-04-01', lastUsed: '2 mins ago', status: 'ACTIVE' },
+  { id: 'key-2', name: 'Development Test', prefix: 'nx_test_...', created: '2025-04-10', lastUsed: '5 days ago', status: 'REVOKED' },
 ];
