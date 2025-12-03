@@ -1,5 +1,5 @@
 
-import { Account, Signal, EquityPoint, TeamMember, AuditLogEntry, ApiKey } from '../types';
+import { Account, Signal, EquityPoint, TeamMember, AuditLogEntry, ApiKey, Notification } from '../types';
 
 export const EXCHANGE_RATE_KES = 129.50;
 
@@ -152,4 +152,11 @@ export const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
 export const MOCK_API_KEYS: ApiKey[] = [
   { id: 'key-1', name: 'Production Bot 1', prefix: 'nx_live_...', created: '2025-04-01', lastUsed: '2 mins ago', status: 'ACTIVE' },
   { id: 'key-2', name: 'Development Test', prefix: 'nx_test_...', created: '2025-04-10', lastUsed: '5 days ago', status: 'REVOKED' },
+];
+
+export const MOCK_NOTIFICATIONS: Notification[] = [
+  { id: 'n1', title: 'Risk Alert', message: 'Daily drawdown limit approaching (85%).', type: 'WARNING', timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), read: false },
+  { id: 'n2', title: 'Execution Success', message: 'Order #88392 filled on XAU/USD.', type: 'SUCCESS', timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), read: false },
+  { id: 'n3', title: 'System Update', message: 'Engine v2.1 deployed successfully.', type: 'INFO', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), read: true },
+  { id: 'n4', title: 'Telegram Connection', message: 'Reconnect required for channel "Gold VIP".', type: 'ERROR', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), read: true },
 ];

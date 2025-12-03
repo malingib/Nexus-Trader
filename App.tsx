@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Radio, 
@@ -18,38 +18,53 @@ import {
   AlertOctagon,
   Lock,
   ArrowRight,
-  Server
+  Server,
+  History,
+  Filter,
+  X,
+  Clock,
+  Briefcase
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
 import SignalCard from './components/SignalCard';
 import ManualEntryForm from './components/ManualEntryForm';
 import Settings from './components/Settings';
+import TradeHistory from './components/TradeHistory';
+import Login from './components/Login';
 
-import { MOCK_ACCOUNTS, MOCK_SIGNALS, MOCK_EQUITY_DATA, USER_PROFILE } from './services/mockData';
-import { Signal, Account, EquityPoint, Currency } from './types';
+import { MOCK_ACCOUNTS, MOCK_SIGNALS, MOCK_EQUITY_DATA, USER_PROFILE, MOCK_NOTIFICATIONS } from './services/mockData';
+import { Signal, Account, EquityPoint, Currency, Notification } from './types';
 
 // Enums for View State
-type View = 'DASHBOARD' | 'SIGNALS' | 'ENTRY' | 'SETTINGS';
+type View = 'DASHBOARD' | 'SIGNALS' | 'ENTRY' | 'SETTINGS' | 'HISTORY';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<View>('SETTINGS'); 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeView, setActiveView] = useState<View>('DASHBOARD'); 
   const [accounts, setAccounts] = useState<Account[]>(MOCK_ACCOUNTS);
   const [equityData, setEquityData] = useState<EquityPoint[]>(MOCK_EQUITY_DATA);
   const [signals, setSignals] = useState<Signal[]>(MOCK_SIGNALS);
+  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [isSystemLocked, setIsSystemLocked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [currency, setCurrency] = useState<Currency>('USD');
   const [dataSaverMode, setDataSaverMode] = useState(false);
+  
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [signalFilter, setSignalFilter] = useState<'ALL' | 'PENDING' | 'EXECUTED'>('ALL');
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
 
   // Stats for sidebar badges
   const pendingSignalsCount = signals.filter(s => s.status === 'AWAITING_APPROVAL').length;
+  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   // Real-time Simulation Engine
   useEffect(() => {
     // If Data Saver is on, stop the high-frequency equity updates
-    if (dataSaverMode) return;
+    if (dataSaverMode || !isAuthenticated) return;
 
     const interval = setInterval(() => {
         // 1. Update Accounts Equity slightly
@@ -79,12 +94,31 @@ const App: React.FC = () => {
     }, 3000); // Update every 3 seconds
 
     return () => clearInterval(interval);
-  }, [accounts, dataSaverMode]);
+  }, [accounts, dataSaverMode, isAuthenticated]);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setActiveView('DASHBOARD');
+  };
 
   const handleApproveSignal = (id: string) => {
     setSignals(prev => prev.map(s => 
       s.id === id ? { ...s, status: 'EXECUTED' } : s
     ));
+    // Add success notification
+    const newNotif: Notification = {
+        id: `n-${Date.now()}`,
+        title: 'Signal Approved',
+        message: 'Trade executed successfully via Orchestrator.',
+        type: 'SUCCESS',
+        timestamp: new Date().toISOString(),
+        read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
   };
 
   const handleRejectSignal = (id: string) => {
@@ -117,6 +151,15 @@ const App: React.FC = () => {
     const confirmStop = window.confirm("CRITICAL: Are you sure you want to trigger the STOP ALL FAIL-SAFE? This will close all positions and pause execution.");
     if (confirmStop) {
       setIsSystemLocked(true);
+      const newNotif: Notification = {
+          id: `n-${Date.now()}`,
+          title: 'FAIL-SAFE TRIGGERED',
+          message: 'User initiated emergency stop. All trading halted.',
+          type: 'ERROR',
+          timestamp: new Date().toISOString(),
+          read: false
+      };
+      setNotifications(prev => [newNotif, ...prev]);
     }
   };
 
@@ -128,6 +171,28 @@ const App: React.FC = () => {
   const toggleCurrency = () => {
       setCurrency(prev => prev === 'USD' ? 'KES' : 'USD');
   };
+
+  const markNotificationsRead = () => {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  // Filter Signals based on search and status
+  const filteredSignals = useMemo(() => {
+      return signals.filter(s => {
+          const matchesSearch = s.instrument.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                s.source.toLowerCase().includes(searchQuery.toLowerCase());
+          
+          let matchesFilter = true;
+          if (signalFilter === 'PENDING') matchesFilter = s.status === 'AWAITING_APPROVAL' || s.status === 'PENDING_RISK';
+          if (signalFilter === 'EXECUTED') matchesFilter = s.status === 'EXECUTED';
+          
+          return matchesSearch && matchesFilter;
+      });
+  }, [signals, searchQuery, signalFilter]);
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="flex h-screen bg-[#050507] text-gray-100 font-sans overflow-hidden relative selection:bg-purple-500 selection:text-white">
@@ -166,6 +231,13 @@ const App: React.FC = () => {
                 badge={pendingSignalsCount > 0 ? pendingSignalsCount : undefined}
             />
 
+             <NavButton 
+                active={activeView === 'HISTORY'} 
+                onClick={() => setActiveView('HISTORY')}
+                icon={<History size={20} />}
+                label="Trade Blotter"
+            />
+
             <NavButton 
                 active={activeView === 'ENTRY'} 
                 onClick={() => setActiveView('ENTRY')}
@@ -193,7 +265,9 @@ const App: React.FC = () => {
                         <span className="opacity-80">Connected</span>
                     </p>
                 </div>
-                <LogOut size={16} className="ml-auto text-gray-500 hover:text-white lg:block hidden opacity-0 group-hover:opacity-100 transition-opacity"/>
+                <button onClick={handleLogout} className="ml-auto text-gray-500 hover:text-white lg:block hidden opacity-0 group-hover:opacity-100 transition-opacity">
+                    <LogOut size={16} />
+                </button>
             </div>
         </div>
       </aside>
@@ -235,19 +309,70 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-                 <div className="relative hidden md:block group">
+                 <div className="relative hidden md:block group z-50">
                     <input 
                         type="text" 
                         placeholder="Search symbols..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="bg-[#0f111a]/50 border border-white/10 rounded-full py-1.5 pl-10 pr-4 text-sm text-gray-300 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all w-56 hover:bg-[#0f111a]"
                     />
                     <Search size={14} className="absolute left-3.5 top-2 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
                 </div>
 
-                <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-full relative transition-colors border border-transparent hover:border-white/10">
-                    <Bell size={18} />
-                    <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full shadow-[0_0_8px_#f43f5e] animate-pulse"></span>
-                </button>
+                {/* Notification Bell */}
+                <div className="relative z-50">
+                    <button 
+                        onClick={() => {
+                            setShowNotificationDropdown(!showNotificationDropdown);
+                            if (!showNotificationDropdown && unreadNotifications > 0) markNotificationsRead();
+                        }}
+                        className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-full relative transition-colors border border-transparent hover:border-white/10"
+                    >
+                        <Bell size={18} />
+                        {unreadNotifications > 0 && (
+                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_#f43f5e] animate-pulse"></span>
+                        )}
+                    </button>
+
+                    {showNotificationDropdown && (
+                        <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowNotificationDropdown(false)}></div>
+                        <div className="absolute right-0 top-12 w-80 glass-card rounded-2xl border border-white/10 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0a0a0e]/80">
+                                 <h4 className="text-sm font-bold text-white">Notifications</h4>
+                                 <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded">All Read</span>
+                             </div>
+                             <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                                 {notifications.length === 0 ? (
+                                     <div className="p-8 text-center text-gray-500 text-xs">No notifications</div>
+                                 ) : (
+                                     notifications.map(note => (
+                                         <div key={note.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors flex gap-3">
+                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                                 note.type === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                 note.type === 'ERROR' ? 'bg-rose-500/10 text-rose-400' :
+                                                 note.type === 'WARNING' ? 'bg-orange-500/10 text-orange-400' :
+                                                 'bg-blue-500/10 text-blue-400'
+                                             }`}>
+                                                 {note.type === 'SUCCESS' && <CheckCircle2 size={14} />}
+                                                 {note.type === 'ERROR' && <AlertOctagon size={14} />}
+                                                 {note.type === 'WARNING' && <Siren size={14} />}
+                                                 {note.type === 'INFO' && <Activity size={14} />}
+                                             </div>
+                                             <div>
+                                                 <p className="text-xs font-bold text-gray-200">{note.title}</p>
+                                                 <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">{note.message}</p>
+                                                 <span className="text-[10px] text-gray-600 mt-2 block">{new Date(note.timestamp).toLocaleTimeString()}</span>
+                                             </div>
+                                         </div>
+                                     ))
+                                 )}
+                             </div>
+                        </div>
+                        </>
+                    )}
+                </div>
                 
                 <div className="h-6 w-px bg-white/10 mx-1"></div>
 
@@ -279,8 +404,14 @@ const App: React.FC = () => {
                  <nav className="space-y-4">
                     <NavButton active={activeView === 'DASHBOARD'} onClick={() => {setActiveView('DASHBOARD'); setIsMobileMenuOpen(false)}} icon={<LayoutDashboard size={22} />} label="Overview" />
                     <NavButton active={activeView === 'SIGNALS'} onClick={() => {setActiveView('SIGNALS'); setIsMobileMenuOpen(false)}} icon={<Radio size={22} />} label="Signals" />
+                    <NavButton active={activeView === 'HISTORY'} onClick={() => {setActiveView('HISTORY'); setIsMobileMenuOpen(false)}} icon={<History size={22} />} label="Trade Blotter" />
                     <NavButton active={activeView === 'ENTRY'} onClick={() => {setActiveView('ENTRY'); setIsMobileMenuOpen(false)}} icon={<PlusSquare size={22} />} label="Manual Entry" />
                     <NavButton active={activeView === 'SETTINGS'} onClick={() => {setActiveView('SETTINGS'); setIsMobileMenuOpen(false)}} icon={<SettingsIcon size={22} />} label="Settings" />
+                    <div className="pt-8 border-t border-white/10">
+                        <button onClick={handleLogout} className="flex items-center gap-3 text-rose-400">
+                            <LogOut size={22} /> Logout
+                        </button>
+                    </div>
                 </nav>
              </div>
         )}
@@ -316,18 +447,31 @@ const App: React.FC = () => {
                         equityData={equityData} 
                         currency={currency} 
                         onToggleCurrency={toggleCurrency}
+                        onViewAllHistory={() => setActiveView('HISTORY')}
                     />
                 </div>
             )}
 
             {activeView === 'SIGNALS' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                         <div>
                              <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Signal Feed</h2>
                              <p className="text-gray-400">Real-time AI and analyst opportunities</p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                             <div className="flex gap-1 bg-[#0f111a] p-1 rounded-xl border border-white/10">
+                                {['ALL', 'PENDING', 'EXECUTED'].map(f => (
+                                    <button 
+                                        key={f}
+                                        onClick={() => setSignalFilter(f as any)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${signalFilter === f ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                             </div>
+                             
                              <div className="px-4 py-2 bg-[#0f111a] border border-white/5 rounded-xl flex items-center gap-2 shadow-lg">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
@@ -338,18 +482,33 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="space-y-4">
-                        {signals.map(signal => (
-                            <SignalCard 
-                                key={signal.id} 
-                                signal={signal} 
-                                accountsCount={accounts.length}
-                                onApprove={handleApproveSignal}
-                                onReject={handleRejectSignal}
-                            />
-                        ))}
-                    </div>
+                    {filteredSignals.length === 0 ? (
+                        <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/5 border-dashed">
+                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-500">
+                                <Search size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-300">No signals found</h3>
+                            <p className="text-gray-500 mt-2 text-sm">Try adjusting your search or filters.</p>
+                            <button onClick={() => {setSearchQuery(''); setSignalFilter('ALL')}} className="mt-4 text-purple-400 hover:text-purple-300 text-sm font-bold">Clear Filters</button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {filteredSignals.map(signal => (
+                                <SignalCard 
+                                    key={signal.id} 
+                                    signal={signal} 
+                                    accountsCount={accounts.length}
+                                    onApprove={handleApproveSignal}
+                                    onReject={handleRejectSignal}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
+            )}
+
+            {activeView === 'HISTORY' && (
+                <TradeHistory currency={currency} />
             )}
 
             {activeView === 'ENTRY' && (

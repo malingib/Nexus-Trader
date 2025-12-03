@@ -52,6 +52,15 @@ export interface EquityPoint {
   value: number;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+  timestamp: string;
+  read: boolean;
+}
+
 // --- Enterprise Types ---
 
 export interface TeamMember {

@@ -98,7 +98,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, onAddAccount, onRemoveAcc
   ]);
   const [newChannel, setNewChannel] = useState('');
   
-  // Billing State (Paystack)
+  // Billing State (Paystack/M-PESA)
   const [showPaystack, setShowPaystack] = useState(false);
   const [paystackStep, setPaystackStep] = useState<'SELECT' | 'PROCESSING' | 'SUCCESS'>('SELECT');
   const [paystackMethod, setPaystackMethod] = useState<'CARD' | 'MM'>('MM');
@@ -448,49 +448,64 @@ const Settings: React.FC<SettingsProps> = ({ accounts, onAddAccount, onRemoveAcc
                     </div>
                  </div>
 
-                 {/* Channel Management */}
+                 {/* Parser Playground */}
                  <div className="space-y-6">
                     <div>
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Hash className="text-purple-400" size={24} /> Whitelisted Channels
+                            <Terminal className="text-purple-400" size={24} /> Parser Playground
                         </h3>
-                        <p className="text-xs text-gray-500 mt-1">Exact name match for groups you have joined.</p>
+                        <p className="text-xs text-gray-500 mt-1">Test your signal format before connecting.</p>
                     </div>
 
                     <div className="bg-[#0f111a]/60 border border-white/5 p-6 rounded-2xl h-full min-h-[400px] flex flex-col">
-                        <div className="space-y-3 flex-1 mb-4 overflow-y-auto max-h-[300px] custom-scrollbar pr-2">
-                            {whitelistedChannels.map(channel => (
-                                <div key={channel.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-white/10 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${channel.active ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-700/20 text-gray-500'}`}>
-                                            <Hash size={16} />
-                                        </div>
-                                        <span className={`font-medium ${channel.active ? 'text-white' : 'text-gray-500 line-through'}`}>{channel.name}</span>
+                        <div className="space-y-2 mb-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Input Text</label>
+                            <textarea 
+                                value={testMessage}
+                                onChange={(e) => setTestMessage(e.target.value)}
+                                className="w-full h-24 bg-[#0a0a0e] border border-white/10 rounded-xl p-3 text-sm text-white font-mono focus:border-purple-500 focus:outline-none resize-none"
+                                placeholder="Paste a sample telegram message here..."
+                            />
+                        </div>
+                        
+                        <div className="flex-1 bg-black/40 rounded-xl border border-white/5 p-4 relative overflow-hidden">
+                             <div className="absolute top-2 right-3 text-[10px] text-gray-600 font-bold uppercase tracking-wider">Live Preview</div>
+                             {parsedResult ? (
+                                <div className="space-y-2 text-sm font-mono">
+                                    <div className="flex justify-between border-b border-white/5 pb-1">
+                                        <span className="text-gray-500">Instrument:</span>
+                                        <span className="text-white font-bold">{parsedResult.instrument || <span className="text-red-500">N/A</span>}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <ToggleSwitch checked={channel.active} onChange={() => toggleChannel(channel.id)} small />
-                                        <button onClick={() => removeChannel(channel.id)} className="text-gray-600 hover:text-rose-400 p-1.5 transition-colors">
-                                            <X size={14} />
-                                        </button>
+                                    <div className="flex justify-between border-b border-white/5 pb-1">
+                                        <span className="text-gray-500">Side:</span>
+                                        <span className={`${parsedResult.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'} font-bold`}>{parsedResult.side || <span className="text-red-500">N/A</span>}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-white/5 pb-1">
+                                        <span className="text-gray-500">Entry:</span>
+                                        <span className="text-white">{parsedResult.price || 'Market'}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-white/5 pb-1">
+                                        <span className="text-gray-500">Stop Loss:</span>
+                                        <span className="text-rose-400">{parsedResult.stop_loss || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-white/5 pb-1">
+                                        <span className="text-gray-500">Take Profit:</span>
+                                        <span className="text-emerald-400">{parsedResult.take_profit || 'N/A'}</span>
+                                    </div>
+                                    <div className="pt-2">
+                                        <div className="flex justify-between mb-1">
+                                            <span className="text-[10px] text-gray-500">Parsing Confidence</span>
+                                            <span className="text-[10px] text-purple-400">{(parsedResult.confidence! * 100).toFixed(0)}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden">
+                                            <div className="bg-purple-500 h-full transition-all duration-300" style={{ width: `${parsedResult.confidence! * 100}%` }}></div>
+                                        </div>
                                     </div>
                                 </div>
-                            ))}
+                             ) : (
+                                 <div className="h-full flex items-center justify-center text-gray-600 text-xs">Waiting for input...</div>
+                             )}
                         </div>
-
-                        <form onSubmit={handleAddChannel} className="mt-auto pt-4 border-t border-white/5">
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    value={newChannel}
-                                    onChange={(e) => setNewChannel(e.target.value)}
-                                    placeholder="Enter Exact Group Name..."
-                                    className="w-full bg-[#0a0a0e] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-white text-sm focus:border-purple-500 focus:outline-none transition-colors"
-                                />
-                                <button type="submit" className="absolute right-2 top-2 p-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors">
-                                    <Plus size={16} />
-                                </button>
-                            </div>
-                        </form>
                     </div>
                  </div>
              </div>
@@ -1112,15 +1127,15 @@ const RiskSlider = ({ label, value, setValue, min, max, step, unit, color, desc 
 };
 
 const UsageBar = ({ label, current, max, suffix = '' }: any) => {
-    const pct = (current / max) * 100;
+    const pct = Math.min(100, Math.max(0, (current / max) * 100));
     return (
-        <div>
-            <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-400 font-medium">{label}</span>
-                <span className="text-white font-bold">{current}{suffix} / {max}{suffix}</span>
+        <div className="space-y-2">
+            <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
+                <span>{label}</span>
+                <span>{current.toLocaleString()}{suffix} / {max.toLocaleString()}{suffix}</span>
             </div>
-            <div className="h-2 w-full bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style={{ width: `${pct}%` }}></div>
+            <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]" style={{ width: `${pct}%` }}></div>
             </div>
         </div>
     );
@@ -1134,81 +1149,67 @@ const InputGroup = ({ label, value, onChange, placeholder }: any) => (
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-[#0a0a0e] border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-purple-500 focus:outline-none transition-colors"
+            className="w-full bg-[#0a0a0e] border border-white/10 rounded-xl px-4 py-3.5 text-white font-mono focus:border-purple-500 focus:outline-none transition-colors"
         />
     </div>
 );
 
-const ToggleSwitch = ({ checked, onChange, small }: { checked: boolean, onChange: () => void, small?: boolean }) => (
+const ToggleRow = ({ label, checked }: any) => (
+    <div className="flex justify-between items-center bg-[#0a0a0e] p-3 rounded-xl border border-white/5">
+        <span className="text-sm font-bold text-gray-300">{label}</span>
+        <ToggleSwitch checked={checked} onChange={() => {}} />
+    </div>
+);
+
+const ToggleSwitch = ({ checked, onChange, small }: any) => (
     <button 
         onClick={onChange}
-        className={`${small ? 'w-10 h-6' : 'w-14 h-8'} rounded-full transition-colors relative shadow-inner ${checked ? 'bg-emerald-500' : 'bg-gray-700'}`}
+        className={`relative rounded-full transition-colors ${small ? 'w-8 h-4' : 'w-12 h-6'} ${checked ? 'bg-emerald-500' : 'bg-gray-700'}`}
     >
-        <div className={`absolute top-1 left-1 bg-white ${small ? 'w-4 h-4' : 'w-6 h-6'} rounded-full transition-transform shadow-md ${checked ? (small ? 'translate-x-4' : 'translate-x-6') : 'translate-x-0'}`}></div>
+        <div className={`absolute top-1 bg-white rounded-full shadow-md transition-transform ${small ? 'w-2 h-2 left-1' : 'w-4 h-4 left-1'} ${checked ? (small ? 'translate-x-4' : 'translate-x-6') : 'translate-x-0'}`}></div>
     </button>
 );
 
-const ToggleRow = ({ label, checked }: { label: string, checked: boolean }) => (
-    <div className="flex items-center gap-4 group cursor-pointer">
-        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${checked ? 'bg-rose-500/30' : 'bg-gray-700'}`}>
-            <div className={`w-4 h-4 rounded-full shadow-md transition-transform ${checked ? 'bg-rose-500 translate-x-6' : 'bg-gray-400 translate-x-0'}`}></div>
+const AIModelCard = ({ id, title, desc, latency, activeId, onSelect, icon }: any) => (
+    <div 
+        onClick={() => onSelect(id)}
+        className={`p-6 rounded-2xl border cursor-pointer transition-all relative overflow-hidden group ${activeId === id ? 'bg-purple-500/10 border-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-[#0f111a]/60 border-white/5 text-gray-400 hover:bg-[#0f111a] hover:border-white/10'}`}
+    >
+        <div className="flex justify-between items-start mb-4">
+            <div className={`p-3 rounded-xl ${activeId === id ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' : 'bg-white/5 text-gray-500'}`}>
+                {icon}
+            </div>
+            {activeId === id && <CheckCircle2 size={20} className="text-purple-400" />}
         </div>
-        <span className={`text-sm font-medium transition-colors ${checked ? 'text-white' : 'text-gray-500'}`}>{label}</span>
+        <h4 className="font-bold text-lg mb-1">{title}</h4>
+        <p className="text-xs opacity-70 mb-4 h-8">{desc}</p>
+        <div className="flex items-center gap-2 text-xs font-mono">
+            <Wifi size={12} /> {latency}
+        </div>
     </div>
 );
 
-const AIModelCard = ({ id, title, desc, latency, activeId, onSelect, icon }: any) => {
-    const isActive = activeId === id;
-    return (
-        <div 
-            onClick={() => onSelect(id)}
-            className={`cursor-pointer p-6 rounded-2xl border transition-all relative overflow-hidden group ${
-                isActive 
-                ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20 border-primary shadow-lg shadow-purple-900/20' 
-                : 'bg-[#0a0a0e]/50 border-white/5 hover:border-white/10 hover:bg-[#0a0a0e]/80'
-            }`}
-        >
-            <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-xl transition-colors ${isActive ? 'bg-primary text-white' : 'bg-white/5 text-gray-400 group-hover:text-white'}`}>
-                    {icon}
-                </div>
-                    {isActive && <CheckCircle2 size={24} className="text-primary animate-in zoom-in" />}
-            </div>
-            <h4 className="text-lg font-bold text-white mb-1">{title}</h4>
-            <p className="text-sm text-gray-400 mb-4 h-10">{desc}</p>
-            <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono bg-white/5 px-2 py-1 rounded text-gray-300 border border-white/5">Latency: {latency}</span>
-            </div>
-        </div>
-    );
-};
-
 const NotificationCard = ({ icon, title, desc, checked, onChange, color }: any) => {
-    const colorClasses = {
-        blue: 'bg-blue-500/10 text-blue-500',
-        purple: 'bg-purple-500/10 text-purple-500',
-        green: 'bg-green-500/10 text-green-500',
-        orange: 'bg-orange-500/10 text-orange-500',
-    }[color as string] || 'bg-gray-500/10 text-gray-500';
-
+    const colorMap: any = {
+        blue: 'text-blue-400',
+        purple: 'text-purple-400',
+        green: 'text-emerald-400',
+        orange: 'text-orange-400'
+    };
+    
     return (
-        <div className="bg-[#0f111a]/60 border border-white/5 p-6 rounded-2xl flex items-center justify-between hover:border-white/10 transition-colors">
-            <div className="flex items-center gap-5">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${colorClasses}`}>
+        <div className="flex items-center justify-between bg-[#0f111a]/60 border border-white/5 p-4 rounded-xl hover:border-white/10 transition-colors">
+            <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl bg-white/5 ${colorMap[color]}`}>
                     {icon}
                 </div>
                 <div>
-                    <h4 className="text-white font-bold text-lg">{title}</h4>
-                    <p className="text-sm text-gray-400">{desc}</p>
+                    <h4 className="font-bold text-white text-sm">{title}</h4>
+                    <p className="text-xs text-gray-500">{desc}</p>
                 </div>
             </div>
-            <button 
-                onClick={() => onChange(!checked)}
-                className={`w-14 h-8 rounded-full transition-colors relative shadow-inner ${checked ? 'bg-primary' : 'bg-gray-700'}`}
-            >
-                <div className={`absolute top-1 left-1 bg-white w-6 h-6 rounded-full transition-transform shadow-md ${checked ? 'translate-x-6' : 'translate-x-0'}`}></div>
-            </button>
-    </div>
+            <ToggleSwitch checked={checked} onChange={() => onChange(!checked)} />
+        </div>
     );
 };
 
