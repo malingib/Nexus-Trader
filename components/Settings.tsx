@@ -446,6 +446,45 @@ const Settings: React.FC<SettingsProps> = ({ accounts, onAddAccount, onRemoveAcc
                             </form>
                         )}
                     </div>
+
+                    {/* Channel Whitelist Section */}
+                    <div className="bg-[#0f111a]/60 border border-white/5 p-6 rounded-2xl">
+                        <h4 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                             <Shield size={18} className="text-emerald-400"/> Whitelisted Channels
+                        </h4>
+                        
+                        <form onSubmit={handleAddChannel} className="flex gap-2 mb-4">
+                             <input 
+                                type="text" 
+                                value={newChannel} 
+                                onChange={(e) => setNewChannel(e.target.value)}
+                                placeholder="Channel Name or ID"
+                                className="flex-1 bg-[#0a0a0e] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                             />
+                             <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-xl transition-colors">
+                                 <Plus size={20} />
+                             </button>
+                        </form>
+
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                            {whitelistedChannels.map(channel => (
+                                <div key={channel.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                     <div className="flex items-center gap-3">
+                                         <div className={`w-2 h-2 rounded-full ${channel.active ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-gray-600'}`}></div>
+                                         <span className={`text-sm font-medium ${channel.active ? 'text-white' : 'text-gray-500'}`}>{channel.name}</span>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                         <button onClick={() => toggleChannel(channel.id)} className={`text-xs font-bold px-2 py-1 rounded transition-colors ${channel.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-700 text-gray-400'}`}>
+                                             {channel.active ? 'Active' : 'Muted'}
+                                         </button>
+                                         <button onClick={() => removeChannel(channel.id)} className="text-gray-500 hover:text-rose-400 p-1">
+                                             <Trash2 size={14} />
+                                         </button>
+                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                  </div>
 
                  {/* Parser Playground */}
